@@ -1,10 +1,10 @@
-FROM python:3.12-bookworm
+FROM python:3.12-alpine
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libheif-dev libjpeg-turbo-progs ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    libheif-dev jpeg-dev ffmpeg \
+    gcc musl-dev linux-headers libffi-dev
 
 COPY pyproject.toml .
 RUN pip install --no-cache-dir -e ".[all]"
