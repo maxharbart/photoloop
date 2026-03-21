@@ -16,8 +16,11 @@ class PhotoOut(BaseModel):
     width: int
     height: int
     file_size: int
+    media_type: str = "photo"
+    duration: float | None = None
     thumb_sm_url: str | None = None
     thumb_md_url: str | None = None
+    original_url: str | None = None
     indexed_at: datetime | None
 
     model_config = {"from_attributes": True}

@@ -10,6 +10,7 @@ from app.models.photo import Photo
 from app.models.album import AlbumPhoto
 from app.models.project import Project
 from app.models.user import User
+from fastapi.responses import Response
 from app.routers.auth import get_current_user
 from app.routers.projects import _get_project_by_slug, _require_member, _require_owner
 from app.schemas.photo import PhotoOut, PhotoListResponse, ScanResponse, ScanStatusResponse
@@ -17,7 +18,10 @@ from app.schemas.photo import PhotoOut, PhotoListResponse, ScanResponse, ScanSta
 router = APIRouter(prefix="/api/projects/{slug}/photos", tags=["photos"])
 
 
-def _photo_to_out(photo: Photo) -> PhotoOut:
+def _photo_to_out(photo: Photo, slug: str = "") -> PhotoOut:
+    original_url = None
+    if photo.media_type == "video" and slug:
+        original_url = f"/api/projects/{slug}/photos/{photo.id}/stream"
     return PhotoOut(
         id=photo.id,
         project_id=photo.project_id,
@@ -30,8 +34,11 @@ def _photo_to_out(photo: Photo) -> PhotoOut:
         width=photo.width,
         height=photo.height,
         file_size=photo.file_size,
+        media_type=photo.media_type,
+        duration=photo.duration,
         thumb_sm_url=f"/thumbs/{photo.thumb_sm}" if photo.thumb_sm else None,
         thumb_md_url=f"/thumbs/{photo.thumb_md}" if photo.thumb_md else None,
+        original_url=original_url,
         indexed_at=photo.indexed_at,
     )
 
@@ -73,7 +80,7 @@ async def list_photos(
     photos = result.scalars().all()
 
     return PhotoListResponse(
-        items=[_photo_to_out(p) for p in photos],
+        items=[_photo_to_out(p, slug) for p in photos],
         total=total,
         page=page,
         page_size=page_size,
@@ -93,7 +100,35 @@ async def get_photo(
     photo = await db.get(Photo, photo_id)
     if photo is None or photo.project_id != project.id:
         raise HTTPException(status_code=404, detail="Photo not found")
-    return _photo_to_out(photo)
+    return _photo_to_out(photo, slug)
+
+
+@router.get("/{photo_id}/stream")
+async def stream_video(
+    slug: str,
+    photo_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await _get_project_by_slug(slug, db)
+    await _require_member(project, current_user, db)
+
+    photo = await db.get(Photo, photo_id)
+    if photo is None or photo.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    if photo.media_type != "video":
+        raise HTTPException(status_code=400, detail="Not a video")
+
+    # Use X-Accel-Redirect to let Nginx serve the file directly
+    internal_path = f"/internal-media/{project.source_path}/{photo.relative_path}"
+    return Response(
+        status_code=200,
+        headers={
+            "X-Accel-Redirect": internal_path,
+            "Content-Type": "",  # Let Nginx determine content type
+            "Content-Disposition": f'inline; filename="{photo.filename}"',
+        },
+    )
 
 
 scan_router = APIRouter(prefix="/api/projects/{slug}/scan", tags=["scan"])

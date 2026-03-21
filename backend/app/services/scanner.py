@@ -18,6 +18,8 @@ from app.tasks.celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".heic", ".heif", ".webp"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp", ".m4v"}
+MEDIA_EXTENSIONS = PHOTO_EXTENSIONS | VIDEO_EXTENSIONS
 
 
 def parse_gps_exif(gps_ifd: dict) -> tuple[float, float] | None:
@@ -107,6 +109,59 @@ def _read_photo_info(filepath: Path) -> dict:
     return info
 
 
+def _read_video_info(filepath: Path) -> dict:
+    """Read video metadata using ffprobe. Runs in thread."""
+    import ffmpeg
+
+    info: dict = {
+        "width": 0,
+        "height": 0,
+        "taken_at": None,
+        "gps_lat": None,
+        "gps_lon": None,
+        "duration": None,
+        "media_type": "video",
+    }
+    info["file_size"] = filepath.stat().st_size
+
+    try:
+        probe = ffmpeg.probe(str(filepath))
+
+        # Get duration from format
+        fmt = probe.get("format", {})
+        if "duration" in fmt:
+            info["duration"] = float(fmt["duration"])
+
+        # Get dimensions from first video stream
+        for stream in probe.get("streams", []):
+            if stream.get("codec_type") == "video":
+                info["width"] = int(stream.get("width", 0))
+                info["height"] = int(stream.get("height", 0))
+                if info["duration"] is None and "duration" in stream:
+                    info["duration"] = float(stream["duration"])
+                break
+
+        # Try to get creation date from format tags
+        tags = fmt.get("tags", {})
+        creation_time = tags.get("creation_time") or tags.get("com.apple.quicktime.creationdate")
+        if creation_time:
+            # Handle ISO format like "2024-06-15T12:00:00.000000Z"
+            try:
+                dt = datetime.fromisoformat(creation_time.replace("Z", "+00:00"))
+                info["taken_at"] = dt
+            except ValueError:
+                pass
+
+    except Exception:
+        logger.warning("Failed to probe video: %s", filepath)
+
+    if info["taken_at"] is None:
+        mtime = filepath.stat().st_mtime
+        info["taken_at"] = datetime.fromtimestamp(mtime, tz=timezone.utc)
+
+    return info
+
+
 async def scan_project_async(project_id: str, source_path: str) -> dict:
     """Scan a project directory and upsert photos into DB."""
     import redis as redis_lib
@@ -133,14 +188,19 @@ async def scan_project_async(project_id: str, source_path: str) -> dict:
         for root, _dirs, files in os.walk(full_path):
             for fname in files:
                 ext = Path(fname).suffix.lower()
-                if ext not in PHOTO_EXTENSIONS:
+                if ext not in MEDIA_EXTENSIONS:
                     continue
 
                 fpath = Path(root) / fname
                 rel_path = str(fpath.relative_to(full_path))
                 found_paths.add(rel_path)
 
-                info = await asyncio.to_thread(_read_photo_info, fpath)
+                is_video = ext in VIDEO_EXTENSIONS
+                if is_video:
+                    info = await asyncio.to_thread(_read_video_info, fpath)
+                else:
+                    info = await asyncio.to_thread(_read_photo_info, fpath)
+
                 batch.append({
                     "id": uuid.uuid5(uuid.NAMESPACE_URL, f"{project_id}/{rel_path}"),
                     "project_id": proj_uuid,
@@ -152,6 +212,8 @@ async def scan_project_async(project_id: str, source_path: str) -> dict:
                     "width": info["width"],
                     "height": info["height"],
                     "file_size": info["file_size"],
+                    "media_type": info.get("media_type", "photo"),
+                    "duration": info.get("duration"),
                     "indexed_at": datetime.now(timezone.utc),
                 })
 
@@ -167,6 +229,8 @@ async def scan_project_async(project_id: str, source_path: str) -> dict:
                                 "width": stmt.excluded.width,
                                 "height": stmt.excluded.height,
                                 "file_size": stmt.excluded.file_size,
+                                "media_type": stmt.excluded.media_type,
+                                "duration": stmt.excluded.duration,
                                 "indexed_at": stmt.excluded.indexed_at,
                             },
                         )

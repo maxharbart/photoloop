@@ -13,10 +13,35 @@ from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp", ".m4v"}
+
 THUMB_SIZES = {
     "sm": (320, 320, 75),
     "md": (800, 800, 82),
 }
+
+
+def _extract_video_frame(video_path: str, output_path: str, timestamp: float = 1.0) -> None:
+    """Extract a single frame from a video file using ffmpeg."""
+    import ffmpeg
+
+    try:
+        (
+            ffmpeg
+            .input(video_path, ss=timestamp)
+            .output(output_path, vframes=1, format="image2")
+            .overwrite_output()
+            .run(capture_stdout=True, capture_stderr=True)
+        )
+    except ffmpeg.Error:
+        # Fallback: try at 0 seconds if the timestamp fails
+        (
+            ffmpeg
+            .input(video_path, ss=0)
+            .output(output_path, vframes=1, format="image2")
+            .overwrite_output()
+            .run(capture_stdout=True, capture_stderr=True)
+        )
 
 
 def _generate(photo_path: str, output_dir: Path, photo_id: str) -> dict[str, str]:
@@ -66,7 +91,25 @@ async def generate_thumbnails_async(photo_id: str) -> dict:
             output_dir = thumbs_root / str(photo.project_id)
 
             ext = full_path.suffix.lower()
-            if ext in {".heic", ".heif"}:
+            if ext in VIDEO_EXTENSIONS:
+                try:
+                    import tempfile
+
+                    # Determine timestamp: 1s or 10% of duration
+                    timestamp = 1.0
+                    if photo.duration and photo.duration > 10:
+                        timestamp = photo.duration * 0.1
+
+                    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                        await asyncio.to_thread(
+                            _extract_video_frame, str(full_path), tmp.name, timestamp
+                        )
+                        results = await asyncio.to_thread(_generate, tmp.name, output_dir, photo_id)
+                        Path(tmp.name).unlink()
+                except Exception:
+                    logger.warning("Failed to generate thumbnails for video: %s", full_path)
+                    return {"status": "error", "reason": "Video thumbnail extraction failed"}
+            elif ext in {".heic", ".heif"}:
                 try:
                     import pyheif
                     heif = pyheif.read(str(full_path))

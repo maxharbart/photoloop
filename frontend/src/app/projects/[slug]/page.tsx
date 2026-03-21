@@ -132,6 +132,24 @@ export default function GalleryPage() {
                     No thumbnail
                   </div>
                 )}
+                {photo.media_type === "video" && (
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <svg
+                        className="h-10 w-10 text-white/80 drop-shadow-lg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                    {photo.duration != null && (
+                      <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        {Math.floor(photo.duration / 60)}:{String(Math.floor(photo.duration % 60)).padStart(2, "0")}
+                      </span>
+                    )}
+                  </>
+                )}
                 {photo.date_estimated && (
                   <span className="absolute left-1 top-1 rounded bg-yellow-600/80 px-1 text-[10px]">
                     date estimated

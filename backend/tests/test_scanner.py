@@ -6,7 +6,16 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from app.services.scanner import parse_gps_exif, _read_photo_info
+from unittest.mock import patch
+
+from app.services.scanner import (
+    parse_gps_exif,
+    _read_photo_info,
+    _read_video_info,
+    MEDIA_EXTENSIONS,
+    VIDEO_EXTENSIONS,
+    PHOTO_EXTENSIONS,
+)
 
 
 def test_parse_gps_exif_valid():
@@ -71,3 +80,64 @@ def test_read_photo_info_png(tmp_path: Path):
     assert info["height"] == 768
     assert info["gps_lat"] is None
     assert info["gps_lon"] is None
+
+
+def test_video_extensions_in_media_extensions():
+    """Verify video extensions are included in MEDIA_EXTENSIONS."""
+    for ext in VIDEO_EXTENSIONS:
+        assert ext in MEDIA_EXTENSIONS
+    for ext in PHOTO_EXTENSIONS:
+        assert ext in MEDIA_EXTENSIONS
+
+
+def test_read_video_info_with_ffprobe(tmp_path: Path):
+    """Test _read_video_info with mocked ffprobe output."""
+    video_path = tmp_path / "test.mp4"
+    video_path.write_bytes(b"\x00" * 1024)  # dummy file
+
+    mock_probe_result = {
+        "format": {
+            "duration": "30.5",
+            "tags": {
+                "creation_time": "2024-06-15T12:00:00.000000Z",
+            },
+        },
+        "streams": [
+            {
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "duration": "30.5",
+            },
+            {
+                "codec_type": "audio",
+            },
+        ],
+    }
+
+    with patch("ffmpeg.probe", return_value=mock_probe_result):
+        info = _read_video_info(video_path)
+
+    assert info["width"] == 1920
+    assert info["height"] == 1080
+    assert info["duration"] == 30.5
+    assert info["media_type"] == "video"
+    assert info["file_size"] == 1024
+    assert info["taken_at"] is not None
+    assert info["taken_at"].year == 2024
+
+
+def test_read_video_info_ffprobe_failure(tmp_path: Path):
+    """Test _read_video_info falls back gracefully when ffprobe fails."""
+    video_path = tmp_path / "test.mov"
+    video_path.write_bytes(b"\x00" * 512)
+
+    with patch("ffmpeg.probe", side_effect=Exception("ffprobe not found")):
+        info = _read_video_info(video_path)
+
+    assert info["width"] == 0
+    assert info["height"] == 0
+    assert info["duration"] is None
+    assert info["media_type"] == "video"
+    assert info["file_size"] == 512
+    assert info["taken_at"] is not None  # Falls back to mtime

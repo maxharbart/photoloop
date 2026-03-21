@@ -92,6 +92,10 @@ async def write_metadata_async(photo_id: str) -> dict:
                 return {"status": "error", "reason": "file not found"}
 
             ext = full_path.suffix.lower()
+            video_exts = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp", ".m4v"}
+            if ext in video_exts:
+                logger.info("EXIF write not supported for video files, skipping: %s", full_path)
+                return {"status": "skipped", "reason": "Video EXIF write not supported"}
             if ext in {".heic", ".heif"}:
                 logger.warning("HEIC EXIF write not supported, skipping: %s", full_path)
                 return {"status": "skipped", "reason": "HEIC EXIF write not supported"}

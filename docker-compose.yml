@@ -91,6 +91,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - thumbs_data:/thumbs:ro
+      - ${SAMBA_MOUNT_PATH:?required}:/media:ro
     depends_on:
       - backend
       - frontend

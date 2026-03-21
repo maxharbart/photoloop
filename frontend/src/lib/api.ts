@@ -177,8 +177,11 @@ export interface Photo {
   width: number;
   height: number;
   file_size: number;
+  media_type: string;
+  duration: number | null;
   thumb_sm_url: string | null;
   thumb_md_url: string | null;
+  original_url: string | null;
   indexed_at: string;
 }
 

@@ -104,9 +104,17 @@ export function Lightbox({
         </button>
       )}
 
-      {/* Image */}
+      {/* Image or Video */}
       <div className="flex flex-1 items-center justify-center p-8">
-        {photo.thumb_md_url ? (
+        {photo.media_type === "video" && photo.original_url ? (
+          <video
+            key={photo.id}
+            src={photo.original_url}
+            controls
+            className="max-h-full max-w-full"
+            preload="metadata"
+          />
+        ) : photo.thumb_md_url ? (
           <img
             src={photo.thumb_md_url}
             alt={photo.filename}
@@ -143,6 +151,13 @@ export function Lightbox({
             <span className="text-gray-400">File size: </span>
             {(photo.file_size / 1024 / 1024).toFixed(1)} MB
           </div>
+
+          {photo.media_type === "video" && photo.duration != null && (
+            <div>
+              <span className="text-gray-400">Duration: </span>
+              {Math.floor(photo.duration / 60)}:{String(Math.floor(photo.duration % 60)).padStart(2, "0")}
+            </div>
+          )}
 
           {(photo.gps_lat !== null || photo.gps_lon !== null) && (
             <div>
