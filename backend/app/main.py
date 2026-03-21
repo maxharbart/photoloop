@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import auth, projects, photos, albums, metadata
+from app.routers import auth, projects, photos, albums, metadata, setup
 
 
 @asynccontextmanager
@@ -26,6 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(setup.router)
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(photos.router)

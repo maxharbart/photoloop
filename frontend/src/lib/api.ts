@@ -61,6 +61,31 @@ async function request<T>(
   return res.json();
 }
 
+// Setup
+export async function getSetupStatus(): Promise<{ needs_setup: boolean }> {
+  const res = await fetch(`${API_BASE}/setup/status`);
+  return res.json();
+}
+
+export async function runSetup(data: {
+  username: string;
+  password: string;
+  project_name: string;
+  project_slug: string;
+  project_source_path: string;
+}): Promise<{ access_token: string; project_slug: string }> {
+  const res = await fetch(`${API_BASE}/setup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new ApiError(res.status, body);
+  }
+  return res.json();
+}
+
 // Auth
 export interface TokenResponse {
   access_token: string;
