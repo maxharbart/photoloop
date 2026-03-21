@@ -33,6 +33,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      network: host
     restart: unless-stopped
     env_file: .env
     environment:
@@ -57,6 +58,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      network: host
     restart: unless-stopped
     env_file: .env
     environment:
@@ -79,6 +81,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      network: host
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: /api
