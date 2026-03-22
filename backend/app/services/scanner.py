@@ -148,6 +148,8 @@ def _read_video_info(filepath: Path) -> dict:
             # Handle ISO format like "2024-06-15T12:00:00.000000Z"
             try:
                 dt = datetime.fromisoformat(creation_time.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
                 info["taken_at"] = dt
             except ValueError:
                 pass
@@ -201,12 +203,16 @@ async def scan_project_async(project_id: str, source_path: str) -> dict:
                 else:
                     info = await asyncio.to_thread(_read_photo_info, fpath)
 
+                taken_at = info["taken_at"]
+                if taken_at is not None and taken_at.tzinfo is None:
+                    taken_at = taken_at.replace(tzinfo=timezone.utc)
+
                 batch.append({
                     "id": uuid.uuid5(uuid.NAMESPACE_URL, f"{project_id}/{rel_path}"),
                     "project_id": proj_uuid,
                     "relative_path": rel_path,
                     "filename": fname,
-                    "taken_at": info["taken_at"],
+                    "taken_at": taken_at,
                     "gps_lat": info["gps_lat"],
                     "gps_lon": info["gps_lon"],
                     "width": info["width"],
