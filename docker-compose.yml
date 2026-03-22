@@ -42,6 +42,7 @@ services:
       MEDIA_ROOT: /media
       THUMBS_ROOT: /thumbs
       SECRET_KEY: ${SECRET_KEY:?required}
+      PYTHONPATH: /app
     volumes:
       - ${SAMBA_MOUNT_PATH:?required}:/media:ro
       - thumbs_data:/thumbs
@@ -73,6 +74,7 @@ services:
       MEDIA_ROOT: /media
       THUMBS_ROOT: /thumbs
       SECRET_KEY: ${SECRET_KEY:?required}
+      PYTHONPATH: /app
     volumes:
       - ${SAMBA_MOUNT_PATH:?required}:/media:ro
       - thumbs_data:/thumbs
