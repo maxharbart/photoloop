@@ -26,6 +26,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
 app.include_router(setup.router)
 app.include_router(auth.router)
 app.include_router(projects.router)
@@ -35,8 +39,3 @@ app.include_router(albums.router)
 app.include_router(metadata.router)
 
 app.mount("/thumbs", StaticFiles(directory=settings.THUMBS_ROOT), name="thumbs")
-
-
-@app.get("/api/health")
-async def health():
-    return {"status": "ok"}
