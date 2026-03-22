@@ -35,3 +35,8 @@ app.include_router(albums.router)
 app.include_router(metadata.router)
 
 app.mount("/thumbs", StaticFiles(directory=settings.THUMBS_ROOT), name="thumbs")
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
