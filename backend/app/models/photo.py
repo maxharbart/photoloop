@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Integer, BigInteger, Float, ForeignKey
+from sqlalchemy import String, Integer, BigInteger, Float, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,7 +16,7 @@ class Photo(UUIDMixin, Base):
     )
     relative_path: Mapped[str] = mapped_column(String(2048), nullable=False)
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
-    taken_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     gps_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     gps_lon: Mapped[float | None] = mapped_column(Float, nullable=True)
     location_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -27,4 +27,4 @@ class Photo(UUIDMixin, Base):
     duration: Mapped[float | None] = mapped_column(Float, nullable=True)
     thumb_sm: Mapped[str | None] = mapped_column(String(512), nullable=True)
     thumb_md: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    indexed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

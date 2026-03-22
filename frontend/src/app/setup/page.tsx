@@ -91,7 +91,7 @@ export default function SetupPage() {
                 required
                 value={form.project_slug}
                 onChange={(e) => set("project_slug", e.target.value)}
-                pattern="[a-z0-9-]+"
+                pattern="[a-z0-9\-]+"
                 title="Lowercase letters, numbers, and hyphens only"
                 className="w-full rounded bg-gray-800 px-3 py-2 text-white outline-none focus:ring-2 focus:ring-blue-500"
               />
